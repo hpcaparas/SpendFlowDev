@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../../app_router.dart';
+import '../../core/config/app_config.dart';
 import '../../core/storage/secure_storage.dart';
 
 class ProfileMenu extends StatefulWidget {
@@ -13,7 +15,8 @@ class ProfileMenu extends StatefulWidget {
 
 class _ProfileMenuState extends State<ProfileMenu> {
   String _name = "User";
-  String? _profilePicture; // filename stored in user.profilePicture
+  String? _profilePicture;
+  int _avatarVersion = DateTime.now().millisecondsSinceEpoch;
 
   @override
   void initState() {
@@ -28,9 +31,12 @@ class _ProfileMenuState extends State<ProfileMenu> {
 
     try {
       final json = jsonDecode(raw) as Map<String, dynamic>;
+      if (!mounted) return;
+
       setState(() {
         _name = (json["name"] ?? "User").toString();
         _profilePicture = json["profilePicture"]?.toString();
+        _avatarVersion = DateTime.now().millisecondsSinceEpoch;
       });
     } catch (_) {
       // ignore bad cache
@@ -38,10 +44,22 @@ class _ProfileMenuState extends State<ProfileMenu> {
   }
 
   ImageProvider _avatarProvider() {
-    // For now use local placeholder; later you can load from backend
-    // Example for later:
-    // if (_profilePicture != null) return NetworkImage("${AppConfig.baseUrl}/uploads/profilePictures/$_profilePicture");
+    if (_profilePicture != null && _profilePicture!.trim().isNotEmpty) {
+      return NetworkImage(
+        "${AppConfig.baseUrl}/uploads/profilePictures/$_profilePicture?v=$_avatarVersion",
+      );
+    }
     return const AssetImage("assets/avatar_default.jpg");
+  }
+
+  Future<void> _openChangePicture() async {
+    await Navigator.of(context).pushNamed(AppRoutes.changePicture);
+    await _loadUser(); // refresh avatar after returning
+  }
+
+  Future<void> _openChangePassword() async {
+    await Navigator.of(context).pushNamed(AppRoutes.changePassword);
+    await _loadUser();
   }
 
   Future<void> _logout() async {
@@ -82,9 +100,9 @@ class _ProfileMenuState extends State<ProfileMenu> {
       tooltip: "Profile",
       onSelected: (value) async {
         if (value == "picture") {
-          Navigator.of(context).pushNamed(AppRoutes.changePicture);
+          await _openChangePicture();
         } else if (value == "password") {
-          Navigator.of(context).pushNamed(AppRoutes.changePassword);
+          await _openChangePassword();
         } else if (value == "logout") {
           await _logout();
         }
@@ -129,7 +147,11 @@ class _ProfileMenuState extends State<ProfileMenu> {
       ],
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: CircleAvatar(radius: 18, backgroundImage: _avatarProvider()),
+        child: CircleAvatar(
+          radius: 18,
+          backgroundColor: const Color(0xFFE2E8F0),
+          backgroundImage: _avatarProvider(),
+        ),
       ),
     );
   }

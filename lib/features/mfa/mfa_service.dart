@@ -170,3 +170,56 @@ class MfaService {
     await Clipboard.setData(ClipboardData(text: text));
   }
 }
+
+class EmailSendResponse {
+  final bool sent;
+  final String emailMasked;
+  final int? expiresInSeconds;
+
+  EmailSendResponse({
+    required this.sent,
+    required this.emailMasked,
+    this.expiresInSeconds,
+  });
+
+  factory EmailSendResponse.fromJson(Map<String, dynamic> json) {
+    return EmailSendResponse(
+      sent: json["sent"] == true,
+      emailMasked: (json["emailMasked"] ?? "").toString(), // ✅ matches backend
+      expiresInSeconds: json["expiresInSeconds"] is int
+          ? json["expiresInSeconds"] as int
+          : int.tryParse((json["expiresInSeconds"] ?? "").toString()),
+    );
+  }
+}
+
+extension EmailMfa on MfaService {
+  /// Triggers an email OTP to be sent (backend decides where to send it).
+  Future<EmailSendResponse> emailSendCode({
+    required String preAuthToken,
+  }) async {
+    final resp = await _dio.post(
+      "/api/auth/mfa/email/send", // ✅ adjust if your backend path differs
+      data: {},
+      options: Options(headers: {"Authorization": "Bearer $preAuthToken"}),
+    );
+
+    return EmailSendResponse.fromJson(
+      (resp.data ?? {}) as Map<String, dynamic>,
+    );
+  }
+
+  /// Verifies the email OTP code and returns final JWT response (access/refresh/user...).
+  Future<Map<String, dynamic>> emailVerify({
+    required String preAuthToken,
+    required String code,
+  }) async {
+    final resp = await _dio.post(
+      "/api/auth/mfa/email/verify", // ✅ adjust if your backend path differs
+      data: {"code": code},
+      options: Options(headers: {"Authorization": "Bearer $preAuthToken"}),
+    );
+
+    return (resp.data ?? {}) as Map<String, dynamic>;
+  }
+}

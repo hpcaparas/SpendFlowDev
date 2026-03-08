@@ -51,6 +51,8 @@ dependencies:
   firebase_core: ^3.0.0
   firebase_messaging: ^15.0.0
   http: ^1.2.0
+  permission_handler: ^11.0.0
+  flutter_launcher_icons: ^0.14.4
 
 dev_dependencies:
   flutter_test:
@@ -105,4 +107,8 @@ flutter:
   # see https://flutter.dev/to/font-from-package
   assets:
     - assets/
-    - assets/
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/Logo_only.png"

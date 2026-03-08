@@ -2,19 +2,14 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/config/app_config.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../shared/receipt/receipt_viewer.dart';
 
-// TODO: Change this import to your real ApiClient if you already have one.
-// If you already have a Dio singleton somewhere, replace _dio with that.
-// Example: import '../../core/network/api_client.dart';
-//
-// For now, we use a local Dio instance so this file is self-contained.
 final Dio _dio = Dio(
   BaseOptions(
-    baseUrl: AppConfig.baseUrl, // ✅ comes from your config
+    baseUrl: AppConfig.baseUrl,
     connectTimeout: const Duration(seconds: 15),
     receiveTimeout: const Duration(seconds: 30),
     headers: {'Accept': 'application/json'},
@@ -37,12 +32,7 @@ class _MyExpenseApplicationsScreenState
 
   bool _loading = true;
   String? _error;
-
-  /// List of groups. Each group is sorted desc by createdAt.
-  /// group[0] is the newest (most recent resubmission / parent).
   List<List<VisaApplicationDto>> _groups = [];
-
-  /// Expanded group keys.
   final Set<int> _expanded = <int>{};
 
   @override
@@ -50,10 +40,6 @@ class _MyExpenseApplicationsScreenState
     super.initState();
     _fetch();
   }
-
-  // -----------------------------
-  // Data fetch & actions
-  // -----------------------------
 
   Future<void> _fetch() async {
     setState(() {
@@ -71,7 +57,6 @@ class _MyExpenseApplicationsScreenState
         return;
       }
 
-      // ✅ Your backend: GET /api/visa/user/{userId}
       final resp = await _dio.get('/api/visa/user/$userId');
       final raw = resp.data;
 
@@ -80,12 +65,6 @@ class _MyExpenseApplicationsScreenState
           .map((e) => VisaApplicationDto.fromJson(e as Map<String, dynamic>))
           .toList();
 
-      // Group by top parent:
-      // - If parentApplicationId is null => root is self
-      // - Else => root should be ultimate ancestor, BUT API only returns parentApplicationId.
-      //   We'll group by: root = (app.parentApplicationId ?? app.id) OR chain fallback.
-      //   Since your API returns parentApplicationId pointing to previous, not always ultimate,
-      //   we normalize by walking until we find a root present in list OR no parent.
       final byId = {for (final a in apps) a.id: a};
 
       int resolveRootId(VisaApplicationDto a) {
@@ -109,14 +88,11 @@ class _MyExpenseApplicationsScreenState
         grouped[rootId]!.add(app);
       }
 
-      // Sort each group by createdAt desc
       final groups = grouped.values.toList()
         ..forEach((g) => g.sort((a, b) => b.createdAt.compareTo(a.createdAt)));
 
-      // Sort groups by newest application's createdAt desc
       groups.sort((a, b) => b.first.createdAt.compareTo(a.first.createdAt));
 
-      // Expand groups that have children (optional, like your web)
       final expanded = <int>{};
       for (final g in groups) {
         if (g.length > 1) {
@@ -154,8 +130,6 @@ class _MyExpenseApplicationsScreenState
     if (!ok) return;
 
     try {
-      // ✅ Your backend cancel endpoint (from your web code):
-      // POST /api/approval/cancel/{id}?userId={userId}
       await _dio.post(
         '/api/approval/cancel/${app.id}',
         queryParameters: {'userId': userId},
@@ -167,10 +141,6 @@ class _MyExpenseApplicationsScreenState
       _toast(_prettyDioError(e));
     }
   }
-
-  // -----------------------------
-  // UI helpers
-  // -----------------------------
 
   void _toggleExpanded(int groupKey) {
     setState(() {
@@ -186,19 +156,20 @@ class _MyExpenseApplicationsScreenState
     switch (code.toUpperCase()) {
       case 'APPROVED':
       case 'PROCESSED':
-        return Colors.green;
+        return const Color(0xFF16A34A);
       case 'DECLINED':
-        return Colors.red;
+        return const Color(0xFFDC2626);
       case 'PENDING':
+        return const Color(0xFFF59E0B);
       case 'FOR_PROCESSING':
-        return Colors.orange;
+        return const Color(0xFF7C3AED);
       case 'RETURNED':
       case 'RETURNED_BY_FINANCE':
-        return Colors.purple;
+        return const Color(0xFF9333EA);
       case 'CANCELLED':
-        return Colors.grey;
+        return const Color(0xFF64748B);
       default:
-        return Colors.blueGrey;
+        return const Color(0xFF475569);
     }
   }
 
@@ -213,7 +184,6 @@ class _MyExpenseApplicationsScreenState
   }
 
   String _fmtDate(DateTime dt) {
-    // lightweight format without intl
     final y = dt.year.toString().padLeft(4, '0');
     final m = dt.month.toString().padLeft(2, '0');
     final d = dt.day.toString().padLeft(2, '0');
@@ -265,19 +235,9 @@ class _MyExpenseApplicationsScreenState
     return '$who - $msg';
   }
 
-  String _receiptUrl(String filename) {
-    // ✅ baseUrl + hard-code the rest
-    // Adjust "uploads/" if your server path differs.
-    return '${AppConfig.baseUrl}/uploads/$filename';
-  }
-
   Future<void> _openReceipt(String filename) async {
-    final url = _receiptUrl(filename);
     if (!mounted) return;
-
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => ReceiptViewerScreen(imageUrl: url)),
-    );
+    await ReceiptViewer.openReceipt(context, imageFilename: filename);
   }
 
   Future<void> _showMore(VisaApplicationDto app) async {
@@ -287,6 +247,7 @@ class _MyExpenseApplicationsScreenState
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
+      backgroundColor: const Color(0xFFF8FAFC),
       builder: (_) {
         final approvals = app.approvals;
         return SafeArea(
@@ -299,12 +260,12 @@ class _MyExpenseApplicationsScreenState
                   Text(
                     'Application #${app.id}',
                     style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF0F172A),
                     ),
                   ),
-                  const SizedBox(height: 6),
-
+                  const SizedBox(height: 10),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
@@ -320,10 +281,9 @@ class _MyExpenseApplicationsScreenState
                       _pill('Method', app.purchaseMethod?.description ?? 'N/A'),
                     ],
                   ),
-
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 18),
                   _sectionTitle('Timeline'),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 8),
                   _kv('Created', _fmtDate(app.createdAt)),
                   _kv('Current Approver', _currentApprover(approvals)),
                   _kv('Approved By', _approvedBy(approvals)),
@@ -336,10 +296,9 @@ class _MyExpenseApplicationsScreenState
                         ? app.remarks!.trim()
                         : 'N/A',
                   ),
-
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 18),
                   _sectionTitle('Approvals'),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
                   if (approvals.isEmpty)
                     const Text('No approval steps found.')
                   else
@@ -348,7 +307,6 @@ class _MyExpenseApplicationsScreenState
                           .map((a) => _approvalTile(a))
                           .toList(growable: false),
                     ),
-
                   const SizedBox(height: 18),
                   Row(
                     children: [
@@ -359,6 +317,12 @@ class _MyExpenseApplicationsScreenState
                               : () => _openReceipt(app.imageFilename!),
                           icon: const Icon(Icons.receipt_long),
                           label: const Text('View Receipt'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -372,6 +336,12 @@ class _MyExpenseApplicationsScreenState
                               : null,
                           icon: const Icon(Icons.cancel),
                           label: const Text('Cancel Application'),
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
                         ),
                       ),
                     ],
@@ -392,11 +362,12 @@ class _MyExpenseApplicationsScreenState
     final role = a.approverRoleName;
     final processor = a.isProcessor == true;
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: Colors.grey.shade200),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: ListTile(
         leading: CircleAvatar(
@@ -406,7 +377,7 @@ class _MyExpenseApplicationsScreenState
             color: color,
           ),
         ),
-        title: Text(who, style: const TextStyle(fontWeight: FontWeight.w600)),
+        title: Text(who, style: const TextStyle(fontWeight: FontWeight.w700)),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -441,7 +412,7 @@ class _MyExpenseApplicationsScreenState
   }
 
   Widget _pill(String label, String value, {Color? color}) {
-    final c = color ?? Colors.blueGrey;
+    final c = color ?? const Color(0xFF475569);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
@@ -455,16 +426,16 @@ class _MyExpenseApplicationsScreenState
           children: [
             TextSpan(
               text: '$label: ',
-              style: TextStyle(
+              style: const TextStyle(
                 fontWeight: FontWeight.w700,
-                color: Colors.grey.shade800,
+                color: Color(0xFF0F172A),
               ),
             ),
             TextSpan(
               text: value,
-              style: TextStyle(
+              style: const TextStyle(
                 fontWeight: FontWeight.w600,
-                color: Colors.grey.shade700,
+                color: Color(0xFF334155),
               ),
             ),
           ],
@@ -476,7 +447,11 @@ class _MyExpenseApplicationsScreenState
   Widget _sectionTitle(String t) {
     return Text(
       t,
-      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+      style: const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w800,
+        color: Color(0xFF0F172A),
+      ),
     );
   }
 
@@ -490,8 +465,8 @@ class _MyExpenseApplicationsScreenState
             width: 130,
             child: Text(
               k,
-              style: TextStyle(
-                color: Colors.grey.shade700,
+              style: const TextStyle(
+                color: Color(0xFF475569),
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -511,6 +486,7 @@ class _MyExpenseApplicationsScreenState
     final result = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: Text(title),
         content: Text(message),
         actions: [
@@ -530,12 +506,10 @@ class _MyExpenseApplicationsScreenState
 
   void _toast(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(behavior: SnackBarBehavior.floating, content: Text(msg)),
+    );
   }
-
-  // -----------------------------
-  // Build
-  // -----------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -548,22 +522,41 @@ class _MyExpenseApplicationsScreenState
     if (_error != null) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                _error!,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.red),
-              ),
-              const SizedBox(height: 12),
-              FilledButton.icon(
-                onPressed: _fetch,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Retry'),
-              ),
-            ],
+          padding: const EdgeInsets.all(20),
+          child: Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: const Color(0xFFFCA5A5)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.error_outline,
+                  color: Color(0xFFDC2626),
+                  size: 34,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  _error!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Color(0xFFB91C1C)),
+                ),
+                const SizedBox(height: 14),
+                FilledButton.icon(
+                  onPressed: _fetch,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Retry'),
+                  style: FilledButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -573,15 +566,40 @@ class _MyExpenseApplicationsScreenState
       return RefreshIndicator(
         onRefresh: _fetch,
         child: ListView(
-          children: const [
-            SizedBox(height: 110),
-            Icon(Icons.inbox_outlined, size: 52, color: Colors.grey),
-            SizedBox(height: 10),
-            Center(
-              child: Text(
-                "No applications found.\nYou haven't submitted any expenses yet.",
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey),
+          padding: const EdgeInsets.all(20),
+          children: [
+            const SizedBox(height: 110),
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: const Column(
+                children: [
+                  Icon(
+                    Icons.inbox_outlined,
+                    size: 52,
+                    color: Color(0xFF94A3B8),
+                  ),
+                  SizedBox(height: 12),
+                  Text(
+                    "No applications found.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 18,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  SizedBox(height: 6),
+                  Text(
+                    "You haven't submitted any expenses yet.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Color(0xFF64748B)),
+                  ),
+                ],
               ),
             ),
           ],
@@ -589,62 +607,67 @@ class _MyExpenseApplicationsScreenState
       );
     }
 
-    return RefreshIndicator(
-      onRefresh: _fetch,
-      child: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
-        itemCount: _groups.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
-        itemBuilder: (context, index) {
-          final group = _groups[index];
-          final latest = group.first; // newest
-          final List<VisaApplicationDto> others = group.length > 1
-              ? group.sublist(1)
-              : <VisaApplicationDto>[];
-          final groupKey = latest.id;
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFFEFF6FF), Color(0xFFF8FAFC), Color(0xFFF3F7FB)],
+        ),
+      ),
+      child: RefreshIndicator(
+        onRefresh: _fetch,
+        child: ListView.separated(
+          padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
+          itemCount: _groups.length + 1,
+          separatorBuilder: (_, __) => const SizedBox(height: 12),
+          itemBuilder: (context, index) {
+            if (index == 0) {
+              final totalApps = _groups.fold<int>(
+                0,
+                (sum, g) => sum + g.length,
+              );
+              return _HeaderCard(
+                totalGroups: _groups.length,
+                totalApplications: totalApps,
+              );
+            }
 
-          final isExpanded = _expanded.contains(groupKey);
+            final group = _groups[index - 1];
+            final latest = group.first;
+            final others = group.length > 1
+                ? group.sublist(1)
+                : <VisaApplicationDto>[];
+            final groupKey = latest.id;
+            final isExpanded = _expanded.contains(groupKey);
 
-          return _GroupCard(
-            latest: latest,
-            others: others,
-            expanded: isExpanded,
-            onToggle: () => _toggleExpanded(groupKey),
-            onViewReceipt: latest.imageFilename == null
-                ? null
-                : () => _openReceipt(latest.imageFilename!),
-            onShowMore: () => _showMore(latest),
-            onCancel: _canCancel(latest.statusCode ?? '')
-                ? () => _cancelApplication(latest)
-                : null,
-            statusColor: _statusColor(latest.statusCode ?? ''),
-            money: _money,
-            fmtDate: _fmtDate,
-          );
-        },
+            return _GroupCard(
+              latest: latest,
+              others: others,
+              expanded: isExpanded,
+              onToggle: () => _toggleExpanded(groupKey),
+              onViewReceipt: latest.imageFilename == null
+                  ? null
+                  : () => _openReceipt(latest.imageFilename!),
+              onShowMore: () => _showMore(latest),
+              onCancel: _canCancel(latest.statusCode ?? '')
+                  ? () => _cancelApplication(latest)
+                  : null,
+              statusColor: _statusColor(latest.statusCode ?? ''),
+              money: _money,
+              fmtDate: _fmtDate,
+            );
+          },
+        ),
       ),
     );
   }
 
-  // -----------------------------
-  // Auth / userId helper
-  // -----------------------------
-  //
-  // Replace this with your REAL user storage logic.
-  // In your web you used localStorage. In Flutter you likely store user JSON / id
-  // in SharedPreferences, SecureStorage, or TokenStore.
-  //
-  // IMPORTANT: For now, this tries to read a user JSON from SharedPreferences-like
-  // source using a simple in-memory placeholder. Update it to your actual store.
-
   Future<int?> _readUserIdFromLocalStorageOrToken() async {
     final prefs = await SharedPreferences.getInstance();
-
-    // 1) Preferred: you already store this directly
     final userId = prefs.getInt("userId");
     if (userId != null) return userId;
 
-    // 2) Fallback: parse the saved "user" JSON
     final userJson = prefs.getString("user");
     if (userJson == null || userJson.isEmpty) return null;
 
@@ -662,17 +685,135 @@ class _MyExpenseApplicationsScreenState
     if (e is DioException) {
       final msg = e.response?.data;
       if (msg is String && msg.trim().isNotEmpty) return msg;
-      if (msg is Map && msg['message'] is String)
+      if (msg is Map && msg['message'] is String) {
         return msg['message'] as String;
+      }
       return e.message ?? 'Request failed.';
     }
     return e.toString().replaceFirst('Exception: ', '');
   }
 }
 
-// ------------------------------------------------------------
-// UI: Group Card
-// ------------------------------------------------------------
+class _HeaderCard extends StatelessWidget {
+  const _HeaderCard({
+    required this.totalGroups,
+    required this.totalApplications,
+  });
+
+  final int totalGroups;
+  final int totalApplications;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1D4ED8), Color(0xFF2563EB), Color(0xFF14B8A6)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF2563EB).withOpacity(0.22),
+            blurRadius: 24,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.18),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: const Text(
+              "Expense Tracking",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.4,
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          const Text(
+            "My Expense Applications",
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            "Review submitted requests, check resubmissions, and manage pending applications.",
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.88),
+              fontSize: 14,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _HeaderMetric(label: "Request Chains", value: "$totalGroups"),
+              _HeaderMetric(label: "Applications", value: "$totalApplications"),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeaderMetric extends StatelessWidget {
+  const _HeaderMetric({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.16),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withOpacity(0.20)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.82),
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+              fontSize: 18,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _GroupCard extends StatelessWidget {
   const _GroupCard({
@@ -691,12 +832,10 @@ class _GroupCard extends StatelessWidget {
   final VisaApplicationDto latest;
   final List<VisaApplicationDto> others;
   final bool expanded;
-
   final VoidCallback onToggle;
   final VoidCallback onShowMore;
   final VoidCallback? onViewReceipt;
   final VoidCallback? onCancel;
-
   final Color statusColor;
   final String Function(double?) money;
   final String Function(DateTime) fmtDate;
@@ -708,18 +847,24 @@ class _GroupCard extends StatelessWidget {
     final hasReceipt =
         latest.imageFilename != null && latest.imageFilename!.trim().isNotEmpty;
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: BorderSide(color: Colors.grey.shade200),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x140F172A),
+            blurRadius: 16,
+            offset: Offset(0, 8),
+          ),
+        ],
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header row: id + status chip
             Row(
               children: [
                 Expanded(
@@ -728,15 +873,14 @@ class _GroupCard extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
+                      color: Color(0xFF0F172A),
                     ),
                   ),
                 ),
-                _chip(statusText.toUpperCase(), statusColor),
+                _statusChip(statusText.toUpperCase(), statusColor),
               ],
             ),
-            const SizedBox(height: 8),
-
-            // Primary info grid
+            const SizedBox(height: 10),
             Wrap(
               runSpacing: 8,
               spacing: 10,
@@ -748,43 +892,60 @@ class _GroupCard extends StatelessWidget {
                 _mini('Created', fmtDate(latest.createdAt)),
               ],
             ),
-
-            const SizedBox(height: 12),
-
-            // Actions row
+            const SizedBox(height: 14),
             Wrap(
               spacing: 10,
               runSpacing: 10,
               children: [
                 OutlinedButton.icon(
-                  onPressed: hasReceipt
-                      ? () => ReceiptViewer.openReceipt(
-                          context,
-                          imageFilename: latest.imageFilename!,
-                        )
-                      : null,
+                  onPressed: hasReceipt ? onViewReceipt : null,
                   icon: const Icon(Icons.receipt_long),
                   label: const Text('Receipt'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
                 ),
                 OutlinedButton.icon(
                   onPressed: onShowMore,
                   icon: const Icon(Icons.info_outline),
                   label: const Text('Show more'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
                 ),
                 if (onCancel != null)
                   FilledButton.icon(
                     onPressed: onCancel,
                     icon: const Icon(Icons.cancel),
-                    label: const Text('Cancel Application'),
+                    label: const Text('Cancel'),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
                   ),
               ],
             ),
-
             if (hasChildren) ...[
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               Divider(color: Colors.grey.shade200, height: 1),
               const SizedBox(height: 8),
-
               InkWell(
                 onTap: onToggle,
                 borderRadius: BorderRadius.circular(12),
@@ -794,15 +955,15 @@ class _GroupCard extends StatelessWidget {
                     children: [
                       Icon(
                         expanded ? Icons.expand_less : Icons.expand_more,
-                        color: Colors.grey.shade700,
+                        color: const Color(0xFF475569),
                       ),
                       const SizedBox(width: 6),
                       Text(
                         expanded
                             ? 'Hide resubmissions (${others.length})'
                             : 'Show resubmissions (${others.length})',
-                        style: TextStyle(
-                          color: Colors.grey.shade800,
+                        style: const TextStyle(
+                          color: Color(0xFF334155),
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -810,7 +971,6 @@ class _GroupCard extends StatelessWidget {
                   ),
                 ),
               ),
-
               if (expanded) ...[
                 const SizedBox(height: 6),
                 Column(
@@ -838,23 +998,24 @@ class _GroupCard extends StatelessWidget {
     switch (code) {
       case 'APPROVED':
       case 'PROCESSED':
-        return Colors.green;
+        return const Color(0xFF16A34A);
       case 'DECLINED':
-        return Colors.red;
+        return const Color(0xFFDC2626);
       case 'PENDING':
+        return const Color(0xFFF59E0B);
       case 'FOR_PROCESSING':
-        return Colors.orange;
+        return const Color(0xFF7C3AED);
       case 'RETURNED':
       case 'RETURNED_BY_FINANCE':
-        return Colors.purple;
+        return const Color(0xFF9333EA);
       case 'CANCELLED':
-        return Colors.grey;
+        return const Color(0xFF64748B);
       default:
-        return Colors.blueGrey;
+        return const Color(0xFF475569);
     }
   }
 
-  Widget _chip(String text, Color color) {
+  Widget _statusChip(String text, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
@@ -878,17 +1039,17 @@ class _GroupCard extends StatelessWidget {
       constraints: const BoxConstraints(minWidth: 140),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             k,
-            style: TextStyle(
-              color: Colors.grey.shade700,
+            style: const TextStyle(
+              color: Color(0xFF475569),
               fontWeight: FontWeight.w800,
               fontSize: 12,
             ),
@@ -896,8 +1057,8 @@ class _GroupCard extends StatelessWidget {
           const SizedBox(height: 3),
           Text(
             v,
-            style: TextStyle(
-              color: Colors.grey.shade800,
+            style: const TextStyle(
+              color: Color(0xFF334155),
               fontWeight: FontWeight.w600,
             ),
             overflow: TextOverflow.ellipsis,
@@ -930,13 +1091,16 @@ class _ChildRow extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
         decoration: BoxDecoration(
-          color: Colors.grey.shade50,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.grey.shade200),
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
         ),
         child: Row(
           children: [
-            Icon(Icons.subdirectory_arrow_right, color: Colors.grey.shade700),
+            const Icon(
+              Icons.subdirectory_arrow_right,
+              color: Color(0xFF475569),
+            ),
             const SizedBox(width: 8),
             Expanded(
               child: Column(
@@ -949,7 +1113,7 @@ class _ChildRow extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(
                     '${fmtDate(child.createdAt)} • ${money(child.priceWithTax)}',
-                    style: TextStyle(color: Colors.grey.shade700),
+                    style: const TextStyle(color: Color(0xFF475569)),
                   ),
                 ],
               ),
@@ -977,51 +1141,6 @@ class _ChildRow extends StatelessWidget {
     );
   }
 }
-
-// ------------------------------------------------------------
-// Receipt viewer (full screen, pinch-zoom)
-// ------------------------------------------------------------
-
-class ReceiptViewerScreen extends StatelessWidget {
-  const ReceiptViewerScreen({super.key, required this.imageUrl});
-
-  final String imageUrl;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Receipt')),
-      body: Center(
-        child: InteractiveViewer(
-          minScale: 0.5,
-          maxScale: 5,
-          child: Image.network(
-            imageUrl,
-            fit: BoxFit.contain,
-            loadingBuilder: (context, child, progress) {
-              if (progress == null) return child;
-              return const Padding(
-                padding: EdgeInsets.all(24),
-                child: CircularProgressIndicator(),
-              );
-            },
-            errorBuilder: (_, __, ___) => Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                'Failed to load receipt.\n\n$imageUrl',
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ------------------------------------------------------------
-// DTOs
-// ------------------------------------------------------------
 
 @immutable
 class VisaApplicationDto {
@@ -1109,7 +1228,6 @@ class TypeDto {
   final String name;
 
   factory TypeDto.fromJson(Map<String, dynamic> json) {
-    // sample has: { id, glCode, name, status }
     return TypeDto(
       id: (json['id'] as num).toInt(),
       name: (json['name'] as String?) ?? 'N/A',

@@ -3,11 +3,8 @@ import 'features/auth/login_screen.dart';
 import 'features/auth/mfa_screen.dart';
 import 'features/auth/models/auth_models.dart';
 import 'features/shell/app_shell.dart';
-import 'features/expense/apply_expense_screen.dart';
-import 'features/approval/approvals_screen.dart';
 import 'features/profile/change_password_screen.dart';
 import 'features/profile/change_picture_screen.dart';
-import 'features/dashboard/user_dashboard_screen.dart';
 
 class AppRoutes {
   static const login = "/login";

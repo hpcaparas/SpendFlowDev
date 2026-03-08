@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../core/config/app_config.dart';
 import '../../shared/receipt/receipt_viewer.dart';
 import 'approval_service.dart';
 import 'models/approval_models.dart';
@@ -26,25 +25,6 @@ class _PendingApprovalsScreenState extends State<PendingApprovalsScreen>
   List<String> _roles = [];
   List<PendingApprovalDto> _items = [];
 
-  Color _statusColor(String code) {
-    switch (code.toUpperCase()) {
-      case 'APPROVED':
-        return Colors.green;
-      case 'DECLINED':
-      case 'REJECTED':
-        return Colors.red;
-      case 'PENDING':
-        return Colors.orange;
-      case 'RETURNED':
-      case 'RETURNED_BY_FINANCE':
-        return Colors.purple;
-      case 'CANCELLED':
-        return Colors.grey;
-      default:
-        return Colors.blueGrey;
-    }
-  }
-
   @override
   void initState() {
     super.initState();
@@ -54,23 +34,30 @@ class _PendingApprovalsScreenState extends State<PendingApprovalsScreen>
   bool get _isProcessor =>
       _roles.map((e) => e.toUpperCase()).contains("PROCESSOR");
 
-  String _money(double? v) => '\$${(v ?? 0).toStringAsFixed(2)}';
+  Color _statusColor(String code) {
+    switch (code.toUpperCase()) {
+      case 'APPROVED':
+        return const Color(0xFF16A34A);
+      case 'DECLINED':
+      case 'REJECTED':
+        return const Color(0xFFDC2626);
+      case 'PENDING':
+        return const Color(0xFFF59E0B);
+      case 'RETURNED':
+      case 'RETURNED_BY_FINANCE':
+        return const Color(0xFF9333EA);
+      case 'CANCELLED':
+        return const Color(0xFF64748B);
+      default:
+        return const Color(0xFF475569);
+    }
+  }
 
-  String _receiptUrl(String filename) =>
-      '${AppConfig.baseUrl}/uploads/$filename';
+  String _money(double? v) => '\$${(v ?? 0).toStringAsFixed(2)}';
 
   Future<void> _openReceipt(String filename) async {
     if (!mounted) return;
-    // If you want to reuse your ReceiptViewer helper:
-    // ReceiptViewer.openReceipt(context, imageFilename: filename);
-    //
-    // Otherwise open via URL:
-    final url = _receiptUrl(filename);
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => _ReceiptViewerScreenByUrl(imageUrl: url),
-      ),
-    );
+    await ReceiptViewer.openReceipt(context, imageFilename: filename);
   }
 
   Future<void> _fetch() async {
@@ -129,7 +116,7 @@ class _PendingApprovalsScreenState extends State<PendingApprovalsScreen>
     }
 
     final reason = await _promptDeclineReason();
-    if (reason == null) return; // cancelled
+    if (reason == null) return;
     if (reason.trim().isEmpty) {
       _toast("Please enter a reason for declining.");
       return;
@@ -157,6 +144,7 @@ class _PendingApprovalsScreenState extends State<PendingApprovalsScreen>
     final result = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: Text(title),
         content: Text(message),
         actions: [
@@ -186,18 +174,25 @@ class _PendingApprovalsScreenState extends State<PendingApprovalsScreen>
         return StatefulBuilder(
           builder: (ctx, setLocalState) {
             return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
               title: const Text("Confirm Decline"),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Text("Please enter a reason for declining:"),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
                   TextField(
                     autofocus: true,
                     maxLines: 4,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: "Enter reason...",
-                      border: OutlineInputBorder(),
+                      filled: true,
+                      fillColor: const Color(0xFFF8FAFC),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                     ),
                     onChanged: (v) => setLocalState(() => reason = v),
                   ),
@@ -224,7 +219,9 @@ class _PendingApprovalsScreenState extends State<PendingApprovalsScreen>
 
   void _toast(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(behavior: SnackBarBehavior.floating, content: Text(msg)),
+    );
   }
 
   @override
@@ -240,64 +237,222 @@ class _PendingApprovalsScreenState extends State<PendingApprovalsScreen>
     if (_error != null) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                _error!,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.red),
-              ),
-              const SizedBox(height: 12),
-              FilledButton.icon(
-                onPressed: _fetch,
-                icon: const Icon(Icons.refresh),
-                label: const Text("Retry"),
-              ),
-            ],
+          padding: const EdgeInsets.all(20),
+          child: Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: const Color(0xFFFCA5A5)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.error_outline,
+                  color: Color(0xFFDC2626),
+                  size: 34,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  _error!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Color(0xFFB91C1C)),
+                ),
+                const SizedBox(height: 14),
+                FilledButton.icon(
+                  onPressed: _fetch,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text("Retry"),
+                  style: FilledButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       );
     }
 
-    return RefreshIndicator(
-      onRefresh: _fetch,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFFEFF6FF), Color(0xFFF8FAFC), Color(0xFFF3F7FB)],
+        ),
+      ),
+      child: RefreshIndicator(
+        onRefresh: _fetch,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
+          children: [
+            _HeaderCard(
+              title: title,
+              totalItems: _items.length,
+              isProcessor: _isProcessor,
+            ),
+            const SizedBox(height: 14),
+            if (_items.isEmpty) ...[
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: const Column(
+                  children: [
+                    Icon(
+                      Icons.inbox_outlined,
+                      size: 52,
+                      color: Color(0xFF94A3B8),
+                    ),
+                    SizedBox(height: 12),
+                    Text(
+                      "No pending approvals.",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 18,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                    SizedBox(height: 6),
+                    Text(
+                      "New requests assigned to you will appear here.",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Color(0xFF64748B)),
+                    ),
+                  ],
+                ),
+              ),
+            ] else ...[
+              ..._items.map(
+                (a) => _ApprovalCard(
+                  item: a,
+                  money: _money,
+                  statusColor: _statusColor,
+                  onApprove: () => _approve(a),
+                  onDecline: () => _decline(a),
+                  onViewReceipt:
+                      (a.imageFilename == null ||
+                          a.imageFilename!.trim().isEmpty)
+                      ? null
+                      : () => _openReceipt(a.imageFilename!),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HeaderCard extends StatelessWidget {
+  const _HeaderCard({
+    required this.title,
+    required this.totalItems,
+    required this.isProcessor,
+  });
+
+  final String title;
+  final int totalItems;
+  final bool isProcessor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1D4ED8), Color(0xFF2563EB), Color(0xFF14B8A6)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF2563EB).withOpacity(0.22),
+            blurRadius: 24,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.18),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              isProcessor ? "Processing Queue" : "Approval Queue",
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.4,
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
           Text(
             title,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+            ),
           ),
-          const SizedBox(height: 10),
-
-          if (_items.isEmpty) ...[
-            const SizedBox(height: 80),
-            const Icon(Icons.inbox_outlined, size: 52, color: Colors.grey),
-            const SizedBox(height: 10),
-            const Center(
-              child: Text(
-                "No pending approvals.",
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey),
-              ),
+          const SizedBox(height: 6),
+          Text(
+            isProcessor
+                ? "Review and process requests currently assigned to you."
+                : "Review and decide on the requests awaiting your approval.",
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.88),
+              fontSize: 14,
+              height: 1.4,
             ),
-          ] else ...[
-            ..._items.map(
-              (a) => _ApprovalCard(
-                item: a,
-                money: _money,
-                statusColor: _statusColor,
-                onApprove: () => _approve(a),
-                onDecline: () => _decline(a),
-                onViewReceipt:
-                    (a.imageFilename == null || a.imageFilename!.trim().isEmpty)
-                    ? null
-                    : () => _openReceipt(a.imageFilename!),
-              ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.16),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Colors.white.withOpacity(0.20)),
             ),
-          ],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Pending Items",
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.82),
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "$totalItems",
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 18,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -317,7 +472,6 @@ class _ApprovalCard extends StatelessWidget {
   final PendingApprovalDto item;
   final String Function(double?) money;
   final Color Function(String) statusColor;
-
   final VoidCallback onApprove;
   final VoidCallback onDecline;
   final VoidCallback? onViewReceipt;
@@ -334,19 +488,25 @@ class _ApprovalCard extends StatelessWidget {
         ? item.applicantName!.trim()
         : 'Applicant';
 
-    return Card(
-      elevation: 0,
+    return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: BorderSide(color: Colors.grey.shade200),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x140F172A),
+            blurRadius: 16,
+            offset: Offset(0, 8),
+          ),
+        ],
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header: applicant + status
             Row(
               children: [
                 Expanded(
@@ -355,6 +515,7 @@ class _ApprovalCard extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
+                      color: Color(0xFF0F172A),
                     ),
                   ),
                 ),
@@ -362,7 +523,6 @@ class _ApprovalCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 10),
-
             Wrap(
               runSpacing: 8,
               spacing: 10,
@@ -376,8 +536,6 @@ class _ApprovalCard extends StatelessWidget {
                       ? item.remarks!.trim()
                       : "No remarks",
                 ),
-
-                // optional but useful
                 if (item.approver?.trim().isNotEmpty == true)
                   _mini("Approver", item.approver!.trim()),
                 if (item.sequenceOrder > 0)
@@ -386,23 +544,22 @@ class _ApprovalCard extends StatelessWidget {
                   _mini("App ID", item.visaApplicationId.toString()),
               ],
             ),
-            const SizedBox(height: 12),
-
-            // Receipt
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: hasReceipt ? onViewReceipt : null,
-                    icon: const Icon(Icons.receipt_long),
-                    label: Text(hasReceipt ? "View Receipt" : "No Image"),
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: hasReceipt ? onViewReceipt : null,
+                icon: const Icon(Icons.receipt_long),
+                label: Text(hasReceipt ? "View Receipt" : "No Image"),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
                   ),
                 ),
-              ],
+              ),
             ),
             const SizedBox(height: 10),
-
-            // Actions
             Row(
               children: [
                 Expanded(
@@ -410,6 +567,12 @@ class _ApprovalCard extends StatelessWidget {
                     onPressed: onApprove,
                     icon: const Icon(Icons.check_circle_outline),
                     label: const Text("Approve"),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -418,6 +581,12 @@ class _ApprovalCard extends StatelessWidget {
                     onPressed: onDecline,
                     icon: const Icon(Icons.cancel_outlined),
                     label: const Text("Decline"),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -452,17 +621,17 @@ class _ApprovalCard extends StatelessWidget {
       constraints: const BoxConstraints(minWidth: 150),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             k,
-            style: TextStyle(
-              color: Colors.grey.shade700,
+            style: const TextStyle(
+              color: Color(0xFF475569),
               fontWeight: FontWeight.w800,
               fontSize: 12,
             ),
@@ -470,53 +639,14 @@ class _ApprovalCard extends StatelessWidget {
           const SizedBox(height: 3),
           Text(
             v,
-            style: TextStyle(
-              color: Colors.grey.shade800,
+            style: const TextStyle(
+              color: Color(0xFF334155),
               fontWeight: FontWeight.w600,
             ),
             overflow: TextOverflow.ellipsis,
             maxLines: 2,
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// Lightweight receipt screen by URL.
-/// If you already have a shared receipt viewer, feel free to delete this and use yours.
-class _ReceiptViewerScreenByUrl extends StatelessWidget {
-  const _ReceiptViewerScreenByUrl({required this.imageUrl});
-
-  final String imageUrl;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("Receipt")),
-      body: Center(
-        child: InteractiveViewer(
-          minScale: 0.5,
-          maxScale: 5,
-          child: Image.network(
-            imageUrl,
-            fit: BoxFit.contain,
-            loadingBuilder: (context, child, progress) {
-              if (progress == null) return child;
-              return const Padding(
-                padding: EdgeInsets.all(24),
-                child: CircularProgressIndicator(),
-              );
-            },
-            errorBuilder: (_, __, ___) => Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                "Failed to load receipt.\n\n$imageUrl",
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }

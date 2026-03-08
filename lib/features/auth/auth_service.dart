@@ -21,6 +21,7 @@ class AuthService {
         // ✅ Use these to drive UI
         final hasTotp = (data["hasTotp"] == true);
         final hasPasskey = (data["hasPasskey"] == true);
+        final hasEmail = (data["hasEmail"] == true);
 
         return LoginResultMfaRequired(
           MfaChallenge(
@@ -29,6 +30,7 @@ class AuthService {
             mode: (status == "MFA_ENROLL_REQUIRED") ? "enroll" : "verify",
             hasTotp: hasTotp,
             hasPasskey: hasPasskey,
+            hasEmail: hasEmail,
           ),
         );
       }

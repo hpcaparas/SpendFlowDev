@@ -17,13 +17,15 @@ class LoginRequest {
 }
 
 class MfaChallenge {
-  final List<String> methods; // e.g. ["webauthn","totp"]
+  final List<String> methods; // e.g. ["webauthn","totp","email"]
   final String preAuthToken;
   final String mode; // "verify" or "enroll"
 
-  // ✅ IMPORTANT: drive the UI with these
   final bool hasPasskey;
   final bool hasTotp;
+
+  // ✅ NEW
+  final bool hasEmail;
 
   MfaChallenge({
     required this.methods,
@@ -31,7 +33,12 @@ class MfaChallenge {
     required this.mode,
     required this.hasPasskey,
     required this.hasTotp,
+    required this.hasEmail,
   });
+
+  bool get canPasskey => hasPasskey && methods.contains("webauthn");
+  bool get canTotp => hasTotp && methods.contains("totp");
+  bool get canEmail => hasEmail && methods.contains("email");
 }
 
 class Role {
@@ -121,4 +128,12 @@ class LoginResultSuccess extends LoginResult {
 class LoginResultMfaRequired extends LoginResult {
   final MfaChallenge challenge;
   LoginResultMfaRequired(this.challenge);
+}
+
+LoginSuccess parseLoginSuccess(Map<String, dynamic> json) {
+  return LoginSuccess(
+    accessToken: (json["accessToken"] ?? "").toString(),
+    refreshToken: (json["refreshToken"] ?? "").toString(),
+    user: UserProfile.fromJson(json["user"] as Map<String, dynamic>),
+  );
 }

@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
-
+import 'package:permission_handler/permission_handler.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:http/http.dart' as http;
 
@@ -15,6 +15,13 @@ class PushNotificationService {
   }) async {
     // iOS needs permission; Android is fine too.
     await _messaging.requestPermission(alert: true, badge: true, sound: true);
+
+    if (Platform.isAndroid) {
+      final status = await Permission.notification.status;
+      if (!status.isGranted) {
+        await Permission.notification.request();
+      }
+    }
 
     final token = await _messaging.getToken();
     if (token == null) return;

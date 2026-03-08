@@ -18,13 +18,8 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
   bool loading = true;
   String? error;
 
-  // ✅ New: filters
-  DateTime _fromDate = DateTime(
-    DateTime.now().year,
-    DateTime.now().month,
-    1,
-  ); // first day of month
-  DateTime _toDate = DateTime.now(); // today
+  DateTime _fromDate = DateTime(DateTime.now().year, DateTime.now().month, 1);
+  DateTime _toDate = DateTime.now();
   String _groupBy = "DAY";
   final int _recentLimit = 10;
 
@@ -72,7 +67,6 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
 
     if (picked == null) return;
 
-    // ensure from <= to
     final newFrom = DateTime(picked.year, picked.month, picked.day);
     DateTime newTo = _toDate;
     if (newFrom.isAfter(newTo)) {
@@ -99,7 +93,6 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
 
     final newTo = DateTime(picked.year, picked.month, picked.day);
 
-    // ensure from <= to
     DateTime newFrom = _fromDate;
     if (newTo.isBefore(newFrom)) {
       newFrom = newTo;
@@ -121,7 +114,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
     setState(() {
       _fromDate = DateTime(from.year, from.month, from.day);
       _toDate = to;
-      _groupBy = days <= 31 ? "DAY" : "MONTH"; // sensible default
+      _groupBy = days <= 31 ? "DAY" : "MONTH";
     });
 
     fetch();
@@ -150,45 +143,127 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        title: const Text("Dashboard"),
-        elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-      ),
-      body: loading
-          ? const Center(child: CircularProgressIndicator())
-          : error != null
-          ? Center(child: Text("Error: $error"))
-          : RefreshIndicator(
-              onRefresh: fetch,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildCoverage(),
-                    const SizedBox(height: 16),
-
-                    _buildKpis(),
-                    const SizedBox(height: 20),
-                    _buildChart(),
-                    const SizedBox(height: 20),
-                    _buildBreakdown(),
-                    const SizedBox(height: 20),
-                    _buildRecent(),
-                  ],
-                ),
+      backgroundColor: const Color(0xFFF3F7FB),
+      body: Stack(
+        children: [
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xFFEFF6FF),
+                  Color(0xFFF8FAFC),
+                  Color(0xFFF3F7FB),
+                ],
               ),
             ),
+          ),
+          SafeArea(
+            child: loading
+                ? const Center(child: CircularProgressIndicator())
+                : error != null
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text("Error: $error", textAlign: TextAlign.center),
+                    ),
+                  )
+                : RefreshIndicator(
+                    onRefresh: fetch,
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildPageHeader(),
+                          const SizedBox(height: 18),
+                          _buildCoverage(),
+                          const SizedBox(height: 16),
+                          _buildKpis(),
+                          const SizedBox(height: 20),
+                          _buildChart(),
+                          const SizedBox(height: 20),
+                          _buildBreakdown(),
+                          const SizedBox(height: 20),
+                          _buildRecent(),
+                        ],
+                      ),
+                    ),
+                  ),
+          ),
+        ],
+      ),
     );
   }
 
-  // ✅ New: Coverage card
+  Widget _buildPageHeader() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1D4ED8), Color(0xFF2563EB), Color(0xFF14B8A6)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF2563EB).withOpacity(0.22),
+            blurRadius: 24,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.18),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: const Text(
+              "Dashboard",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.4,
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          const Text(
+            "Expense overview",
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            "Track spending, monitor status counts, and review recent expense activity.",
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.88),
+              fontSize: 14,
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCoverage() {
     return _card(
       title: "Date Coverage",
+      subtitle:
+          "Adjust the reporting period and grouping to refine the dashboard.",
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -202,53 +277,61 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
               _quickChip("YTD", _setYtd),
             ],
           ),
-          const SizedBox(height: 12),
-
+          const SizedBox(height: 14),
           Row(
             children: [
               Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _pickFromDate,
-                  icon: const Icon(Icons.date_range),
-                  label: Text(
-                    "From: ${DateFormat("MMM dd, yyyy").format(_fromDate)}",
-                  ),
+                child: _outlineAction(
+                  icon: Icons.date_range,
+                  label:
+                      "From: ${DateFormat("MMM dd, yyyy").format(_fromDate)}",
+                  onTap: _pickFromDate,
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _pickToDate,
-                  icon: const Icon(Icons.event),
-                  label: Text(
-                    "To: ${DateFormat("MMM dd, yyyy").format(_toDate)}",
-                  ),
+                child: _outlineAction(
+                  icon: Icons.event,
+                  label: "To: ${DateFormat("MMM dd, yyyy").format(_toDate)}",
+                  onTap: _pickToDate,
                 ),
               ),
             ],
           ),
-
-          const SizedBox(height: 12),
-
-          // Group By dropdown (uses your existing API param)
-          Row(
-            children: [
-              const Text("Group by: "),
-              const SizedBox(width: 10),
-              DropdownButton<String>(
-                value: _groupBy,
-                items: const [
-                  DropdownMenuItem(value: "DAY", child: Text("Day")),
-                  DropdownMenuItem(value: "WEEK", child: Text("Week")),
-                  DropdownMenuItem(value: "MONTH", child: Text("Month")),
-                ],
-                onChanged: (val) {
-                  if (val == null) return;
-                  setState(() => _groupBy = val);
-                  fetch();
-                },
-              ),
-            ],
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Row(
+              children: [
+                const Text(
+                  "Group by:",
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF334155),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                DropdownButton<String>(
+                  value: _groupBy,
+                  underline: const SizedBox.shrink(),
+                  items: const [
+                    DropdownMenuItem(value: "DAY", child: Text("Day")),
+                    DropdownMenuItem(value: "WEEK", child: Text("Week")),
+                    DropdownMenuItem(value: "MONTH", child: Text("Month")),
+                  ],
+                  onChanged: (val) {
+                    if (val == null) return;
+                    setState(() => _groupBy = val);
+                    fetch();
+                  },
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -256,10 +339,38 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
   }
 
   Widget _quickChip(String label, VoidCallback onTap) {
-    return ActionChip(label: Text(label), onPressed: onTap);
+    return ActionChip(
+      onPressed: onTap,
+      label: Text(label),
+      labelStyle: const TextStyle(
+        fontWeight: FontWeight.w700,
+        color: Color(0xFF1E3A8A),
+      ),
+      backgroundColor: const Color(0xFFEFF6FF),
+      side: const BorderSide(color: Color(0xFFBFDBFE)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+    );
   }
 
-  // ================= KPIs =================
+  Widget _outlineAction({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return OutlinedButton.icon(
+      onPressed: onTap,
+      icon: Icon(icon),
+      label: Text(label, overflow: TextOverflow.ellipsis),
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        side: const BorderSide(color: Color(0xFFE2E8F0)),
+        backgroundColor: const Color(0xFFF8FAFC),
+      ),
+    );
+  }
+
   Widget _buildKpis() {
     final k = data!.kpis;
 
@@ -269,42 +380,90 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
       crossAxisSpacing: 12,
       mainAxisSpacing: 12,
       physics: const NeverScrollableScrollPhysics(),
-      childAspectRatio: 1.5,
+      childAspectRatio: 1.28,
       children: [
         _kpiCard(
           "Total Spend",
           "\$${k.totalSpend.toStringAsFixed(2)}",
-          Colors.blue,
+          const Color(0xFF2563EB),
+          Icons.payments_outlined,
         ),
-        _kpiCard("Submitted", "${k.submittedCount}", Colors.black87),
-        _kpiCard("Pending", "${k.pendingCount}", Colors.orange),
-        _kpiCard("Approved", "${k.approvedCount}", Colors.green),
-        _kpiCard("Returned", "${k.returnedCount}", Colors.red),
-        _kpiCard("Processing", "${k.forProcessingCount}", Colors.purple),
+        _kpiCard(
+          "Submitted",
+          "${k.submittedCount}",
+          const Color(0xFF0F172A),
+          Icons.receipt_long_outlined,
+        ),
+        _kpiCard(
+          "Pending",
+          "${k.pendingCount}",
+          const Color(0xFFF59E0B),
+          Icons.schedule_outlined,
+        ),
+        _kpiCard(
+          "Approved",
+          "${k.approvedCount}",
+          const Color(0xFF16A34A),
+          Icons.check_circle_outline,
+        ),
+        _kpiCard(
+          "Returned",
+          "${k.returnedCount}",
+          const Color(0xFFDC2626),
+          Icons.reply_all_outlined,
+        ),
+        _kpiCard(
+          "Processing",
+          "${k.forProcessingCount}",
+          const Color(0xFF7C3AED),
+          Icons.settings_suggest_outlined,
+        ),
       ],
     );
   }
 
-  Widget _kpiCard(String title, String value, Color color) {
+  Widget _kpiCard(String title, String value, Color color, IconData icon) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2)),
+          BoxShadow(
+            color: Color(0x140F172A),
+            blurRadius: 16,
+            offset: Offset(0, 8),
+          ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: TextStyle(color: Colors.grey[600])),
+          Container(
+            height: 42,
+            width: 42,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.10),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, color: color),
+          ),
           const Spacer(),
+          Text(
+            title,
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 6),
           Text(
             value,
             style: TextStyle(
               fontSize: 22,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w800,
               color: color,
             ),
           ),
@@ -313,139 +472,367 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
     );
   }
 
-  // ================= CHART =================
   Widget _buildChart() {
     final trend = data!.trend;
 
     return _card(
       title: "Spending Trend",
+      subtitle: "Visualize total expense movement across the selected period.",
       child: SizedBox(
-        height: 220,
-        child: LineChart(
-          LineChartData(
-            gridData: FlGridData(show: true),
-            titlesData: FlTitlesData(show: true),
-            borderData: FlBorderData(show: false),
-            lineBarsData: [
-              LineChartBarData(
-                isCurved: true,
-                barWidth: 3,
-                spots: List.generate(
-                  trend.length,
-                  (i) => FlSpot(i.toDouble(), trend[i].total),
+        height: 240,
+        child: trend.isEmpty
+            ? const Center(
+                child: Text(
+                  "No trend data available.",
+                  style: TextStyle(color: Color(0xFF64748B)),
                 ),
-                dotData: FlDotData(show: false),
+              )
+            : LineChart(
+                LineChartData(
+                  minY: 0,
+                  gridData: FlGridData(
+                    show: true,
+                    horizontalInterval: null,
+                    getDrawingHorizontalLine: (value) =>
+                        FlLine(color: const Color(0xFFE2E8F0), strokeWidth: 1),
+                    drawVerticalLine: false,
+                  ),
+                  titlesData: FlTitlesData(
+                    topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 42,
+                        interval: _leftInterval(trend),
+                        getTitlesWidget: (value, meta) {
+                          return Text(
+                            value.toStringAsFixed(0),
+                            style: const TextStyle(
+                              color: Color(0xFF64748B),
+                              fontSize: 11,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 28,
+                        interval: _bottomInterval(trend.length),
+                        getTitlesWidget: (value, meta) {
+                          final index = value.toInt();
+                          if (index < 0 || index >= trend.length) {
+                            return const SizedBox.shrink();
+                          }
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Text(
+                              _shortLabel(trend[index].bucket),
+                              style: const TextStyle(
+                                color: Color(0xFF64748B),
+                                fontSize: 10.5,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  borderData: FlBorderData(show: false),
+                  lineBarsData: [
+                    LineChartBarData(
+                      isCurved: true,
+                      barWidth: 3.5,
+                      color: const Color(0xFF2563EB),
+                      belowBarData: BarAreaData(
+                        show: true,
+                        color: const Color(0xFF60A5FA).withOpacity(0.16),
+                      ),
+                      spots: List.generate(
+                        trend.length,
+                        (i) => FlSpot(i.toDouble(), trend[i].total),
+                      ),
+                      dotData: FlDotData(show: false),
+                    ),
+                  ],
+                ),
               ),
-            ],
-          ),
-        ),
       ),
     );
   }
 
-  // ================= BREAKDOWN =================
+  double _leftInterval(List<TrendPoint> trend) {
+    final max = trend.fold<double>(0, (p, e) => e.total > p ? e.total : p);
+    if (max <= 100) return 20;
+    if (max <= 500) return 100;
+    if (max <= 2000) return 500;
+    return (max / 4).ceilToDouble();
+  }
+
+  double _bottomInterval(int count) {
+    if (count <= 6) return 1;
+    if (count <= 12) return 2;
+    return 3;
+  }
+
+  String _shortLabel(String bucket) {
+    if (bucket.isEmpty) return "";
+    try {
+      if (bucket.length == 7) {
+        final parsed = DateFormat("yyyy-MM").parse(bucket);
+        return DateFormat("MMM").format(parsed);
+      }
+      if (bucket.length == 10) {
+        final parsed = DateFormat("yyyy-MM-dd").parse(bucket);
+        return DateFormat("MMM d").format(parsed);
+      }
+    } catch (_) {}
+    return bucket.length <= 6 ? bucket : bucket.substring(0, 6);
+  }
+
   Widget _buildBreakdown() {
     return Column(
       children: [
-        _buildBreakdownCard("By Type", data!.byType),
+        _buildBreakdownCard("By Type", data!.byType, Icons.category_outlined),
         const SizedBox(height: 12),
-        _buildBreakdownCard("By Purchase Method", data!.byPurchaseMethod),
+        _buildBreakdownCard(
+          "By Purchase Method",
+          data!.byPurchaseMethod,
+          Icons.credit_card_outlined,
+        ),
       ],
     );
   }
 
-  Widget _buildBreakdownCard(String title, List<BreakdownItem> items) {
+  Widget _buildBreakdownCard(
+    String title,
+    List<BreakdownItem> items,
+    IconData icon,
+  ) {
     return _card(
       title: title,
-      child: Column(
-        children: items.map((e) {
-          return ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(e.name),
-            trailing: Text("\$${e.total.toStringAsFixed(2)}"),
-          );
-        }).toList(),
-      ),
+      subtitle: "See where spending is concentrated.",
+      child: items.isEmpty
+          ? const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                "No breakdown data available.",
+                style: TextStyle(color: Color(0xFF64748B)),
+              ),
+            )
+          : Column(
+              children: items.map((e) {
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        height: 40,
+                        width: 40,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEFF6FF),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Icon(icon, color: const Color(0xFF2563EB)),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          e.name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                      ),
+                      Text(
+                        "\$${e.total.toStringAsFixed(2)}",
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
     );
   }
 
-  // ================= RECENT =================
   Widget _buildRecent() {
     return _card(
       title: "Recent Expenses",
-      child: Column(
-        children: data!.recent.map((e) {
-          return ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(e.typeName ?? "-"),
-            subtitle: Text(
-              "${e.departmentName ?? ""} • ${_formatDate(e.createdAt)}",
+      subtitle: "Latest submitted records within the selected date coverage.",
+      child: data!.recent.isEmpty
+          ? const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                "No recent expenses found.",
+                style: TextStyle(color: Color(0xFF64748B)),
+              ),
+            )
+          : Column(
+              children: data!.recent.map((e) {
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        height: 44,
+                        width: 44,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEFF6FF),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Icon(
+                          Icons.receipt_long_outlined,
+                          color: Color(0xFF2563EB),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              e.typeName ?? "-",
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              "${e.departmentName ?? ""} • ${_formatDate(e.createdAt)}",
+                              style: const TextStyle(
+                                color: Color(0xFF64748B),
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            "\$${e.priceWithTax.toStringAsFixed(2)}",
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          _statusChip(e.statusCode),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
             ),
-            trailing: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  "\$${e.priceWithTax.toStringAsFixed(2)}",
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 4),
-                _statusChip(e.statusCode),
-              ],
-            ),
-          );
-        }).toList(),
-      ),
     );
   }
 
   Widget _statusChip(String? status) {
     Color color;
+    String text = status ?? "";
 
     switch (status) {
       case "APPROVED":
-        color = Colors.green;
+        color = const Color(0xFF16A34A);
         break;
       case "DECLINED":
       case "RETURNED":
-        color = Colors.red;
+        color = const Color(0xFFDC2626);
         break;
       case "FOR_PROCESSING":
-        color = Colors.purple;
+        color = const Color(0xFF7C3AED);
         break;
       case "PENDING":
-        color = Colors.grey;
+        color = const Color(0xFF64748B);
         break;
       default:
-        color = Colors.black54;
+        color = const Color(0xFF475569);
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
+        color: color.withOpacity(0.10),
+        borderRadius: BorderRadius.circular(999),
       ),
-      child: Text(status ?? "", style: TextStyle(color: color, fontSize: 12)),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: color,
+          fontSize: 11.5,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
     );
   }
 
-  // ================= COMMON CARD =================
-  Widget _card({required String title, required Widget child}) {
+  Widget _card({
+    required String title,
+    required Widget child,
+    String? subtitle,
+  }) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2)),
+          BoxShadow(
+            color: Color(0x140F172A),
+            blurRadius: 16,
+            offset: Offset(0, 8),
+          ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 12),
+          Text(
+            title,
+            style: const TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 16,
+              color: Color(0xFF0F172A),
+            ),
+          ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: const TextStyle(color: Color(0xFF64748B), fontSize: 13.5),
+            ),
+          ],
+          const SizedBox(height: 14),
           child,
         ],
       ),
